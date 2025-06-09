@@ -1,0 +1,13 @@
+{
+  "name": "discord-cleanup-bot",
+  "version": "1.0.0",
+  "description": "Discord bot to clean up a server and broadcast messages.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.13.0",
+    "dotenv": "^16.0.3"
+  }
+}
